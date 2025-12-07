@@ -49,8 +49,8 @@ type Peer struct {
 	}
 
 	// Handshake event callback for external monitoring
-	handshakeEventCallback func(publicKey string, eventType string, attempts uint32)
-	handshakeCallbackMutex sync.RWMutex
+	handshakeEventCallback   func(publicKey string, eventType string, attempts uint32)
+	handshakeCallbackMutex   sync.RWMutex
 	handshakeFailureNotified atomic.Bool
 
 	queue struct {

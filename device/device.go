@@ -330,10 +330,10 @@ func (device *Device) LookupPeerByBytes(publicKeyBytes []byte) *Peer {
 	if len(publicKeyBytes) != 32 {
 		return nil
 	}
-	
+
 	var publicKey NoisePublicKey
 	copy(publicKey[:], publicKeyBytes)
-	
+
 	return device.LookupPeer(publicKey)
 }
 

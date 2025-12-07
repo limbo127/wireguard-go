@@ -84,11 +84,11 @@ func expiredRetransmitHandshake(peer *Peer) {
 		peer.handshakeCallbackMutex.RLock()
 		callback := peer.handshakeEventCallback
 		peer.handshakeCallbackMutex.RUnlock()
-		
+
 		if callback != nil {
 			go callback(peer.PublicKeyBase64(), "handshake_failed_final", peer.timers.handshakeAttempts.Load())
 		}
-		
+
 		peer.handshakeFailureNotified.Store(true)
 
 		if peer.timersActive() {
@@ -115,7 +115,7 @@ func expiredRetransmitHandshake(peer *Peer) {
 			peer.handshakeCallbackMutex.RLock()
 			callback := peer.handshakeEventCallback
 			peer.handshakeCallbackMutex.RUnlock()
-			
+
 			if callback != nil {
 				peer.handshakeFailureNotified.Store(true)
 				go callback(peer.PublicKeyBase64(), "handshake_timeout", attemptNum)
@@ -201,20 +201,20 @@ func (peer *Peer) timersHandshakeComplete() {
 	if peer.timersActive() {
 		peer.timers.retransmitHandshake.Del()
 	}
-	
+
 	// Check if this is a recovery from failure
 	previouslyFailed := peer.handshakeFailureNotified.Swap(false)
-	
+
 	peer.timers.handshakeAttempts.Store(0)
 	peer.timers.sentLastMinuteHandshake.Store(false)
 	peer.lastHandshakeNano.Store(time.Now().UnixNano())
-	
+
 	// Fire recovery callback if peer was previously failed
 	if previouslyFailed {
 		peer.handshakeCallbackMutex.RLock()
 		callback := peer.handshakeEventCallback
 		peer.handshakeCallbackMutex.RUnlock()
-		
+
 		if callback != nil {
 			go callback(peer.PublicKeyBase64(), "handshake_recovered", 0)
 		}
