@@ -325,6 +325,18 @@ func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 	return device
 }
 
+// LookupPeer finds a peer by public key (wrapper for external use with byte slice)
+func (device *Device) LookupPeerByBytes(publicKeyBytes []byte) *Peer {
+	if len(publicKeyBytes) != 32 {
+		return nil
+	}
+	
+	var publicKey NoisePublicKey
+	copy(publicKey[:], publicKeyBytes)
+	
+	return device.LookupPeer(publicKey)
+}
+
 // BatchSize returns the BatchSize for the device as a whole which is the max of
 // the bind batch size and the tun batch size. The batch size reported by device
 // is the size used to construct memory pools, and is the allowed batch size for

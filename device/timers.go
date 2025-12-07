@@ -80,6 +80,17 @@ func expiredRetransmitHandshake(peer *Peer) {
 	if peer.timers.handshakeAttempts.Load() > MaxTimerHandshakes {
 		peer.device.log.Verbosef("%s - Handshake did not complete after %d attempts, giving up", peer, MaxTimerHandshakes+2)
 
+		// Fire final failure callback
+		peer.handshakeCallbackMutex.RLock()
+		callback := peer.handshakeEventCallback
+		peer.handshakeCallbackMutex.RUnlock()
+		
+		if callback != nil {
+			go callback(peer.PublicKeyBase64(), "handshake_failed_final", peer.timers.handshakeAttempts.Load())
+		}
+		
+		peer.handshakeFailureNotified.Store(true)
+
 		if peer.timersActive() {
 			peer.timers.sendKeepalive.Del()
 		}
@@ -96,8 +107,20 @@ func expiredRetransmitHandshake(peer *Peer) {
 			peer.timers.zeroKeyMaterial.Mod(RejectAfterTime * 3)
 		}
 	} else {
-		peer.timers.handshakeAttempts.Add(1)
-		peer.device.log.Verbosef("%s - Handshake did not complete after %d seconds, retrying (try %d)", peer, int(RekeyTimeout.Seconds()), peer.timers.handshakeAttempts.Load()+1)
+		attemptNum := peer.timers.handshakeAttempts.Add(1)
+		peer.device.log.Verbosef("%s - Handshake did not complete after %d seconds, retrying (try %d)", peer, int(RekeyTimeout.Seconds()), attemptNum)
+
+		// Fire callback on FIRST failure (5s detection)
+		if attemptNum == 1 && !peer.handshakeFailureNotified.Load() {
+			peer.handshakeCallbackMutex.RLock()
+			callback := peer.handshakeEventCallback
+			peer.handshakeCallbackMutex.RUnlock()
+			
+			if callback != nil {
+				peer.handshakeFailureNotified.Store(true)
+				go callback(peer.PublicKeyBase64(), "handshake_timeout", attemptNum)
+			}
+		}
 
 		/* We clear the endpoint address src address, in case this is the cause of trouble. */
 		peer.markEndpointSrcForClearing()
@@ -178,9 +201,24 @@ func (peer *Peer) timersHandshakeComplete() {
 	if peer.timersActive() {
 		peer.timers.retransmitHandshake.Del()
 	}
+	
+	// Check if this is a recovery from failure
+	previouslyFailed := peer.handshakeFailureNotified.Swap(false)
+	
 	peer.timers.handshakeAttempts.Store(0)
 	peer.timers.sentLastMinuteHandshake.Store(false)
 	peer.lastHandshakeNano.Store(time.Now().UnixNano())
+	
+	// Fire recovery callback if peer was previously failed
+	if previouslyFailed {
+		peer.handshakeCallbackMutex.RLock()
+		callback := peer.handshakeEventCallback
+		peer.handshakeCallbackMutex.RUnlock()
+		
+		if callback != nil {
+			go callback(peer.PublicKeyBase64(), "handshake_recovered", 0)
+		}
+	}
 }
 
 /* Should be called after an ephemeral key is created, which is before sending a handshake response or after receiving a handshake response. */

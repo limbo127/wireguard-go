@@ -7,6 +7,7 @@ package device
 
 import (
 	"container/list"
+	"encoding/base64"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -47,6 +48,11 @@ type Peer struct {
 		sync.Mutex // protects against concurrent Start/Stop
 	}
 
+	// Handshake event callback for external monitoring
+	handshakeEventCallback func(publicKey string, eventType string, attempts uint32)
+	handshakeCallbackMutex sync.RWMutex
+	handshakeFailureNotified atomic.Bool
+
 	queue struct {
 		staged   chan *QueueOutboundElementsContainer // staged packets before a handshake is available
 		outbound *autodrainingOutboundQueue           // sequential ordering of udp transmission
@@ -56,6 +62,19 @@ type Peer struct {
 	cookieGenerator             CookieGenerator
 	trieEntries                 list.List
 	persistentKeepaliveInterval atomic.Uint32
+}
+
+// RegisterHandshakeEventCallback sets a callback for handshake events
+// eventType can be: "handshake_timeout" (first failure at 5s), "handshake_failed_final" (after max retries), "handshake_recovered" (successful after failure)
+func (peer *Peer) RegisterHandshakeEventCallback(cb func(publicKey string, eventType string, attempts uint32)) {
+	peer.handshakeCallbackMutex.Lock()
+	defer peer.handshakeCallbackMutex.Unlock()
+	peer.handshakeEventCallback = cb
+}
+
+// PublicKeyBase64 returns the peer's public key as a base64-encoded string
+func (peer *Peer) PublicKeyBase64() string {
+	return base64.StdEncoding.EncodeToString(peer.handshake.remoteStatic[:])
 }
 
 func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
