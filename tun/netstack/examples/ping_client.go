@@ -17,9 +17,9 @@ import (
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 
-	"golang.zx2c4.com/wireguard/conn"
-	"golang.zx2c4.com/wireguard/device"
-	"golang.zx2c4.com/wireguard/tun/netstack"
+	"github.com/limbo127/wireguard-go/conn"
+	"github.com/limbo127/wireguard-go/device"
+	"github.com/limbo127/wireguard-go/tun/netstack"
 )
 
 func main() {
