@@ -245,7 +245,7 @@ func (bind *afWinRingBind) Open(family int32, sa windows.Sockaddr) (windows.Sock
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// CRITICAL FIX: Disable ICMP Port Unreachable from terminating the socket
 	// Without this, when ANY peer goes down and sends ICMP Port Unreachable,
 	// Windows kills the ENTIRE UDP socket, breaking ALL peers
@@ -270,7 +270,7 @@ func (bind *afWinRingBind) Open(family int32, sa windows.Sockaddr) (windows.Sock
 	} else {
 		println("DEBUG: Successfully disabled ICMP Port Unreachable handling on socket")
 	}
-	
+
 	err = bind.rx.Open()
 	if err != nil {
 		return nil, err
