@@ -245,6 +245,32 @@ func (bind *afWinRingBind) Open(family int32, sa windows.Sockaddr) (windows.Sock
 	if err != nil {
 		return nil, err
 	}
+	
+	// CRITICAL FIX: Disable ICMP Port Unreachable from terminating the socket
+	// Without this, when ANY peer goes down and sends ICMP Port Unreachable,
+	// Windows kills the ENTIRE UDP socket, breaking ALL peers
+	// This must be set BEFORE bind()
+	const SIO_UDP_CONNRESET = 0x9800000C
+	var behaviorValue uint32 = 0 // 0 = disable behavior (ignore ICMP errors)
+	var bytesReturned uint32
+	err = windows.WSAIoctl(
+		bind.sock,
+		SIO_UDP_CONNRESET,
+		(*byte)(unsafe.Pointer(&behaviorValue)),
+		uint32(unsafe.Sizeof(behaviorValue)),
+		nil,
+		0,
+		&bytesReturned,
+		nil,
+		0,
+	)
+	if err != nil {
+		// Log the error but continue - socket will work but be vulnerable to ICMP errors
+		println("WARNING: Failed to set SIO_UDP_CONNRESET - ICMP errors may kill socket:", err.Error())
+	} else {
+		println("DEBUG: Successfully disabled ICMP Port Unreachable handling on socket")
+	}
+	
 	err = bind.rx.Open()
 	if err != nil {
 		return nil, err
