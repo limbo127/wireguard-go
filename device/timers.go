@@ -77,6 +77,8 @@ func (peer *Peer) timersActive() bool {
 }
 
 func expiredRetransmitHandshake(peer *Peer) {
+	peer.device.log.Verbosef("DEBUG_CALLBACK: expiredRetransmitHandshake called for %s (attempt=%d)", peer, peer.timers.handshakeAttempts.Load())
+	
 	if peer.timers.handshakeAttempts.Load() > MaxTimerHandshakes {
 		peer.device.log.Verbosef("%s - Handshake did not complete after %d attempts, giving up", peer, MaxTimerHandshakes+2)
 
@@ -110,16 +112,18 @@ func expiredRetransmitHandshake(peer *Peer) {
 		attemptNum := peer.timers.handshakeAttempts.Add(1)
 		peer.device.log.Verbosef("%s - Handshake did not complete after %d seconds, retrying (try %d)", peer, int(RekeyTimeout.Seconds()), attemptNum)
 
-		// Fire callback on FIRST failure (5s detection)
-		if attemptNum == 1 && !peer.handshakeFailureNotified.Load() {
-			peer.handshakeCallbackMutex.RLock()
-			callback := peer.handshakeEventCallback
-			peer.handshakeCallbackMutex.RUnlock()
+		// Fire callback on EVERY retry (not just first) - health monitor needs continuous signals
+		peer.handshakeCallbackMutex.RLock()
+		callback := peer.handshakeEventCallback
+		peer.handshakeCallbackMutex.RUnlock()
 
-			if callback != nil {
+		if callback != nil {
+			// Set failure flag on first attempt
+			if attemptNum == 1 {
 				peer.handshakeFailureNotified.Store(true)
-				go callback(peer.PublicKeyBase64(), "handshake_timeout", attemptNum)
 			}
+			// Fire callback every time for continuous health monitoring
+			go callback(peer.PublicKeyBase64(), "handshake_timeout", attemptNum)
 		}
 
 		/* We clear the endpoint address src address, in case this is the cause of trouble. */
@@ -192,6 +196,7 @@ func (peer *Peer) timersAnyAuthenticatedPacketReceived() {
 /* Should be called after a handshake initiation message is sent. */
 func (peer *Peer) timersHandshakeInitiated() {
 	if peer.timersActive() {
+		peer.device.log.Verbosef("DEBUG_CALLBACK: timersHandshakeInitiated - setting retransmit timer for %s", peer)
 		peer.timers.retransmitHandshake.Mod(RekeyTimeout + time.Millisecond*time.Duration(fastrandn(RekeyTimeoutJitterMaxMs)))
 	}
 }
@@ -199,6 +204,7 @@ func (peer *Peer) timersHandshakeInitiated() {
 /* Should be called after a handshake response message is received and processed or when getting key confirmation via the first data message. */
 func (peer *Peer) timersHandshakeComplete() {
 	if peer.timersActive() {
+		peer.device.log.Verbosef("DEBUG_CALLBACK: timersHandshakeComplete - deleting retransmit timer for %s", peer)
 		peer.timers.retransmitHandshake.Del()
 	}
 

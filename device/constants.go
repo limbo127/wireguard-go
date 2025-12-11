@@ -17,10 +17,10 @@ const (
 	RekeyAfterTime          = time.Second * 120
 	RekeyAttemptTime        = time.Second * 90
 	RekeyTimeout            = time.Second * 5
-	MaxTimerHandshakes      = 90 / 5 /* RekeyAttemptTime / RekeyTimeout */
+	MaxTimerHandshakes      = 999999 /* Never give up on handshake attempts - keep retrying forever */
 	RekeyTimeoutJitterMaxMs = 334
 	RejectAfterTime         = time.Second * 180
-	KeepaliveTimeout        = time.Second * 10
+	KeepaliveTimeout        = time.Second * 5
 	CookieRefreshTime       = time.Second * 120
 	HandshakeInitationRate  = time.Second / 50
 	PaddingMultiple         = 16
